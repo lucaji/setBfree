@@ -1,6 +1,6 @@
 /* setBfree - DSP tonewheel organ
  *
- * Copyright (C) 2012 Robin Gareus <robin@gareus.org>
+ * Copyright (C) 2012,2018 Robin Gareus <robin@gareus.org>
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License as published by
@@ -30,12 +30,12 @@ extern "C" {
 
 extern void setConvolutionMix (unsigned char u);
 
-extern void initConvolution (void *clv, void *m, const unsigned int channels, const unsigned int buffersize, int sched_pri, int sched_pol);
+extern void initConvolution (void* clv, void* m, const unsigned int channels, const unsigned int buffersize, int sched_pri, int sched_pol);
 extern void freeConvolution ();
-extern void convolve (const float ** inbuf, float ** outbuf, size_t n_channels, size_t n_samples);
+extern void convolve (const float** inbuf, float** outbuf, size_t n_channels, size_t n_samples);
 
-extern int convolutionConfig (ConfigContext * cfg);
-const ConfigDoc *convolutionDoc ();
+extern int convolutionConfig (ConfigContext* cfg);
+const ConfigDoc* convolutionDoc ();
 
 #ifdef __cplusplus
 }

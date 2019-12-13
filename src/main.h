@@ -1,7 +1,7 @@
 /* setBfree - DSP tonewheel organ
  *
  * Copyright (C) 2003-2004 Fredrik Kilander <fk@dsv.su.se>
- * Copyright (C) 2008-2012 Robin Gareus <robin@gareus.org>
+ * Copyright (C) 2008-2018 Robin Gareus <robin@gareus.org>
  * Copyright (C) 2012 Will Panther <pantherb@setbfree.org>
  *
  * This program is free software; you can redistribute it and/or modify
@@ -36,10 +36,10 @@
 
 #define B_size 9
 
-extern int mainConfig (ConfigContext * cfg);
-extern const ConfigDoc *mainDoc ();
+extern int mainConfig (ConfigContext* cfg);
+extern const ConfigDoc* mainDoc ();
 
-extern double SampleRateD; // TODO -> tonegen.c, vibrato.c non-global
-extern void save_midname(void *instp, FILE *f); // defined in midnam.c
+extern double SampleRateD;                                    // TODO -> tonegen.c, vibrato.c non-global
+extern void save_midname (void* instp, FILE* f, char* model); // defined in midnam.c
 
 #endif /* MAIN_H */

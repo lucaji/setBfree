@@ -48,16 +48,21 @@ ifeq ($(shell pkg-config --exists jack || echo no), no)
   $(error "JACK is required - install libjack-dev or libjack-jackd2-dev")
 endif
 
-ifeq ($(shell pkg-config --exists alsa && echo yes), yes)
+ifeq ($(shell pkg-config --exists alsa && echo yes)$(ENABLE_ALSA), yesyes)
   override CFLAGS+=-DHAVE_ASEQ `pkg-config --cflags alsa`
   LOADLIBES+=`pkg-config --libs alsa`
-else
-  $(info "compiling w/o ALSA Sequencer - libasound is missing - JACK-midi is always on")
 endif
 
 
 override CFLAGS+=`pkg-config --cflags jack`
-LOADLIBES+=`pkg-config --libs jack`
+
+ifeq ($(USEWEAKJACK),1)
+  override CFLAGS+=-DUSE_WEAK_JACK -I$(RW)
+  LOADLIBES+=-ldl
+  WEAKJACK=$(RW)weakjack/weak_libjack.c
+else
+  LOADLIBES+=`pkg-config --libs jack`
+endif
 
 ifeq ($(shell pkg-config --exists sndfile \
 	&& test -f /usr/include/zita-convolver.h -o -f /usr/local/include/zita-convolver.h \
@@ -67,24 +72,22 @@ ifeq ($(shell pkg-config --exists sndfile \
   OBJS+=../b_conv/convolution.o
   HEADERS+=../b_conv/convolution.h
   BXCC=$(CXX)
-else
-  $(info "compiling w/o ZITA Convolution Reverb -- needs libzita-convolver3 and libsndfile")
 endif
 
-all: setBfree
+all: setBfree$(EXE_EXT)
 
-setBfree: $(HEADERS) $(OBJS)
+setBfree$(EXE_EXT): $(HEADERS) $(OBJS)
 	$(BXCC) $(CPPFLAGS) $(CFLAGS) \
-		-o $(@) $(OBJS) \
+		-o $(@) $(OBJS) $(WEAKJACK) \
 		$(LDFLAGS) $(LOADLIBES)
 
 programd: program.c pgmParser.c program.h pgmParser.h main.h
-	$(CC) $(CPPFLAGS) $(CFLAGS) -Wall \
+	$(CC) $(CPPFLAGS) $(CFLAGS) $(LDFLAGS) -Wall \
 		-DPRG_MAIN \
 		-o $(@) program.c pgmParser.c
 
 configd: cfgParser.c main.h
-	$(CC) $(CPPFLAGS) $(CFLAGS) -Wall \
+	$(CC) $(CPPFLAGS) $(CFLAGS) $(LDFLAGS) -Wall \
 		-DCFG_MAIN \
 		-o $(@) cfgParser.c
 
@@ -117,7 +120,7 @@ program.o: defaultpgm.h
 	+$(MAKE) -C ../b_conv convolution.o
 
 clean:
-	rm -f *.o core *.log *~ setBfree configd programd
+	rm -f *.o core *.log *~ setBfree$(EXE_EXT) configd programd
 
 install: setBfree
 	install -d $(DESTDIR)$(bindir)
@@ -126,9 +129,6 @@ install: setBfree
 	install -d $(DESTDIR)$(sharedir)/pgm
 	install -m644 ../cfg/*.cfg $(DESTDIR)$(sharedir)/cfg
 	install -m644 ../pgm/*.pgm $(DESTDIR)$(sharedir)/pgm
-ifneq ($(TCLTKPREFIX),)
-	install -m755 setBfree-start.sh $(DESTDIR)$(bindir)/setBfree-start
-endif
 
 uninstall:
 	rm -f $(DESTDIR)$(bindir)/setBfree

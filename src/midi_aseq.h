@@ -1,7 +1,7 @@
 /* setBfree - DSP tonewheel organ
  *
  * Copyright (C) 2003-2004 Fredrik Kilander <fk@dsv.su.se>
- * Copyright (C) 2008-2012 Robin Gareus <robin@gareus.org>
+ * Copyright (C) 2008-2018 Robin Gareus <robin@gareus.org>
  * Copyright (C) 2012 Will Panther <pantherb@setbfree.org>
  *
  * This program is free software; you can redistribute it and/or modify
@@ -21,8 +21,8 @@
 #ifndef SETBFREE_ASEQ_H_
 #define SETBFREE_ASEQ_H_
 
-extern void *aseq_run(void *arg);
-extern int aseq_open(char *port_name);
-extern void aseq_close(void);
+extern void* aseq_run (void* arg);
+extern int aseq_open (char* port_name);
+extern void aseq_close (void);
 
 #endif

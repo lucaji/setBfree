@@ -1,6 +1,6 @@
 /* setBfree - DSP tonewheel organ
  *
- * Copyright (C) 2013 Robin Gareus <robin@gareus.org>
+ * Copyright (C) 2013-2018 Robin Gareus <robin@gareus.org>
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License as published by
@@ -19,22 +19,39 @@
 #ifndef GLOBAL_INST_H
 #define GLOBAL_INST_H
 
+#include "midi.h"
+#include "overdrive.h"
+#include "program.h"
+#include "reverb.h"
 #include "tonegen.h"
 #include "vibrato.h"
-#include "midi.h"
 #include "whirl.h"
-#include "overdrive.h"
-#include "reverb.h"
-#include "program.h"
 
 typedef struct b_instance {
-	struct b_reverb *reverb;
-	struct b_whirl *whirl;
-	struct b_tonegen *synth;
-	struct b_programme *progs;
-	void * midicfg;
-	void * preamp;
-	void * state;
+	struct b_reverb*    reverb;
+	struct b_whirl*     whirl;
+	struct b_tonegen*   synth;
+	struct b_programme* progs;
+	void*               midicfg;
+	void*               preamp;
+	void*               state;
 } b_instance;
+
+/* clang-format off */
+#define LOCALEGUARD_START                                        \
+        char* oldlocale = strdup (setlocale (LC_NUMERIC, NULL)); \
+        if (strcmp (oldlocale, "C")) {                           \
+                setlocale (LC_NUMERIC, "C");                     \
+        } else {                                                 \
+                free (oldlocale);                                \
+                oldlocale = NULL;                                \
+        }
+
+#define LOCALEGUARD_END                            \
+        if (oldlocale) {                           \
+                setlocale (LC_NUMERIC, oldlocale); \
+                free (oldlocale);                  \
+        }
+/* clang-format on */
 
 #endif

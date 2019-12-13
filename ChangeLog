@@ -1,3 +1,85 @@
+2019-10-13 (0.8.10)  Robin Gareus <robin@gareus.org>
+* Define LV2 port-groups for whirl
+  (explicitly associate in/out ports)
+* Fix lv2-validation for strict-i/o override
+* setBfreeUI: Show version at bottom of help screen
+* add explicit -pthread for compiling UI
+
+2019-08-20 (0.8.9)  Robin Gareus <robin@gareus.org>
+* Implement GUI touch-events for for leslie ctrls
+* Add "popular" presets from dcoredump's setBfreak
+* Flag whirl.lv2 to override ardour/mixbus strict-i/o
+  (Ardour/Mixbus mono-to-stereo)
+
+2018-08-13 (0.8.8)  Robin Gareus <robin@gareus.org>
+* Add x42 identifier to LV2 name
+* Use Shift+Space for GUI config animation (instead of space)
+*	Fix plugins when compiling using a C++ compiler
+* Fix some compiler warnings (overflow, sprintf)
+
+2018-08-03 (0.8.7)  Robin Gareus <robin@gareus.org>
+* fix robtk-update (hotfix 0.8.6 release)
+
+2018-08-03 (0.8.6)  Robin Gareus <robin@gareus.org>
+* LV2: notify host when internal state changes
+* Leslie: add a 3-way (fast, stop, slow) MIDI-CC mode
+* Add support for higher SR and/or larger Leslie horn-spacing
+* Add MIDI out (notify) to command line version
+* Support notifications for equivalent messages
+* Expose chorus/vibrato as standalone plugin
+* Cleanup + format source-code
+
+2017-08-04 (0.8.5)  Robin Gareus <robin@gareus.org>
+* add MOD UIs for organ and leslie
+* fix ARM optimization (chorale speed may become be stuck)
+* fix MIDI config CC (lower manual assignments cleared upper manual)
+* fix LV2 StateChanged URI
+
+2017-01-04 (0.8.4)  Robin Gareus <robin@gareus.org>
+* fix possible buffer overflow in LV midnam interface
+
+2016-12-30 (0.8.3)  Robin Gareus <robin@gareus.org>
+* support LV2 state#Dirty (inform host about changed internal settings)
+* add LV2 MidName interface (inform host about CCs)
+* tweak reverb (delaylines, sample-rate scaling)
+* fix some spelling mistakes
+* add French Translation to desktop launchers
+* optimize leslie for ARM CPUs.
+
+## there was no proper 0.8.2 release
+
+2016-01-21 (0.8.1)  Robin Gareus <robin@gareus.org>
+* add localeguards (numeric values in config now always use c-locale)
+	e.g "1.0"  (previously some locales saved "1,0")
+* fix swell-pedal volume when changed by CC (was 3dB too low)
+* Clean up LV2 definitions, consistent names. enum/integer definitions
+* LV2 add mandatory version number
+* Leslie-sound: fine-tune angular IR, match measured data
+* remove old presets for leslie-lv2
+* queue panic message when re-activating the plugin
+* various small changes to the leslie-lv2 GUI (faceplates)
+* built-system tweaks (check for idle-thread, allow CXXFLAGS)
+
+2015-06-17 (0.8.0)  Robin Gareus <robin@gareus.org>
+* major GUI overhaul (LV2/openGL)
+	- add configuration/settings
+	- add preferences
+	- add keyboard manuals & pedals
+	- polish UI (3D model)
+* new standalone jack application with GL GUI
+* deprecate ALSA-MIDI (disabled by default)
+* remove old tcl/tk prototype UI
+* update Leslie. fix aliasing during acceleration and deceleration
+* allow Leslie horn & drum mono pickup
+* fix Leslie horn rotation (counter-clockwise)
+* extend Leslie configuration, mic angle & position, horn radius, etc
+* LV2 custom GUI for standalone Leslie
+* portability updates (ARM-CPU tweaks, Windows + OSX versions & bundles)
+* add presets for Kurzweil and Korg CX3
+* improve LV2 plugin name consistency
+* don't install standalone jack/overdrive test app.
+* countless tweaks and bug fixes (see git log)
+
 2013-09-10 (0.7.5)  Robin Gareus <robin@gareus.org>
 * setBfree: exit if ALSA and JACK MIDI port cannot be created
 * fix assignment of lower and pedal manual keys with transpose enable

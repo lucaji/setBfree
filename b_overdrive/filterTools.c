@@ -1,7 +1,7 @@
 /* setBfree - DSP tonewheel organ
  *
  * Copyright (C) 2003-2004 Fredrik Kilander <fk@dsv.su.se>
- * Copyright (C) 2008-2012 Robin Gareus <robin@gareus.org>
+ * Copyright (C) 2008-2018 Robin Gareus <robin@gareus.org>
  * Copyright (C) 2012 Will Panther <pantherb@setbfree.org>
  *
  * This program is free software; you can redistribute it and/or modify
@@ -20,14 +20,14 @@
 
 /* filterTools.c */
 
+#include <assert.h>
+#include <math.h>
 #include <stdio.h>
 #include <stdlib.h>
-#include <math.h>
-#include <assert.h>
 
 #include "filterTools.h"
 
-/* ========================================================================
+/* ************************************************************************
  * Windowing functions. These functions return a scale factor between 0-1.
  * It is applied to an array of signals so that they may be scaled
  * according to their position in the array.
@@ -58,25 +58,28 @@
  * by introducing a touch of the second harmonic (Blackman).
  */
 
-double wdw_Hamming (int i, int m) {
-  assert (i < m);
-  return (0.54 - (0.46 * cos ((2.0*M_PI*(double) i)/(double)(m-1))));
+double
+wdw_Hamming (int i, int m)
+{
+	assert (i < m);
+	return (0.54 - (0.46 * cos ((2.0 * M_PI * (double)i) / (double)(m - 1))));
 }
 
-double wdw_Blackman (int i, int m) {
-  assert (i < m);
-  return (0.42
-	  - (0.50 * cos (2.0*M_PI*((double)i/(double)(m-1))))
-	  + (0.08 * cos (4.0*M_PI*((double)i/(double)(m-1))))
-	  );
+double
+wdw_Blackman (int i, int m)
+{
+	assert (i < m);
+	return (0.42 - (0.50 * cos (2.0 * M_PI * ((double)i / (double)(m - 1)))) + (0.08 * cos (4.0 * M_PI * ((double)i / (double)(m - 1)))));
 }
 
-double wdw_Hanning (int i, int m) {
-  assert (i < m);
-  return (0.5 - (0.5 * cos ((2.0*M_PI*(double)i)/(double)(m-1))));
+double
+wdw_Hanning (int i, int m)
+{
+	assert (i < m);
+	return (0.5 - (0.5 * cos ((2.0 * M_PI * (double)i) / (double)(m - 1))));
 }
 
-/* ========================================================================
+/* ************************************************************************
  *
  * Creates a low-pass filter and applies the requested window function.
  *
@@ -86,45 +89,45 @@ double wdw_Hanning (int i, int m) {
  * @param m   Length of filter kernel (should be odd).
  */
 
-void sincApply (double fc, int wdw, double a[], int m) {
-  int i;
-  int Mp = m - 1;
-  double sum;
+void
+sincApply (double fc, int wdw, double a[], int m)
+{
+	int    i;
+	int    Mp = m - 1;
+	double sum;
 
-  for (i = 0; i < m; i++) {
-    if ((i - (Mp / 2)) == 0) {
-      a[i] = 2.0 * M_PI * fc;
-    }
-    else {
-      double k = (double) (i - (Mp / 2));
-      a[i] = sin (2.0 * M_PI * fc * k) / k;
-      /* Select window here */
-      switch (wdw) {
-      case WDW_HAMMING:
-	a[i] *= wdw_Hamming  (i, m);
-	break;
-      case WDW_BLACKMAN:
-	a[i] *= wdw_Blackman (i, m);
-	break;
-      case WDW_HANNING:
-	a[i] *= wdw_Hanning  (i, m);
-	break;
-      default:
-	assert (0);
-      }
-    }
-  }
+	for (i = 0; i < m; i++) {
+		if ((i - (Mp / 2)) == 0) {
+			a[i] = 2.0 * M_PI * fc;
+		} else {
+			double k = (double)(i - (Mp / 2));
+			a[i]     = sin (2.0 * M_PI * fc * k) / k;
+			/* Select window here */
+			switch (wdw) {
+				case WDW_HAMMING:
+					a[i] *= wdw_Hamming (i, m);
+					break;
+				case WDW_BLACKMAN:
+					a[i] *= wdw_Blackman (i, m);
+					break;
+				case WDW_HANNING:
+					a[i] *= wdw_Hanning (i, m);
+					break;
+				default:
+					assert (0);
+			}
+		}
+	}
 
-  /* Sum all weights */
+	/* Sum all weights */
 
-  for (i = 0, sum = 0.0; i < m; i++) {
-    sum += a[i];
-  }
+	for (i = 0, sum = 0.0; i < m; i++) {
+		sum += a[i];
+	}
 
-  /* Normalize to unit gain */
+	/* Normalize to unit gain */
 
-  for (i = 0; i < m; i++) {
-    a[i] /= sum;
-  }
-
+	for (i = 0; i < m; i++) {
+		a[i] /= sum;
+	}
 }

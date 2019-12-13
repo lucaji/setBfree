@@ -1,7 +1,7 @@
 /* setBfree - DSP tonewheel organ
  *
  * Copyright (C) 2003-2004 Fredrik Kilander <fk@dsv.su.se>
- * Copyright (C) 2008-2012 Robin Gareus <robin@gareus.org>
+ * Copyright (C) 2008-2018 Robin Gareus <robin@gareus.org>
  * Copyright (C) 2012 Will Panther <pantherb@setbfree.org>
  *
  * This program is free software; you can redistribute it and/or modify
@@ -26,56 +26,54 @@
 #define VIB1 0x01
 #define VIB2 0x02
 #define VIB3 0x03
-#define CHO_ 0x80		/* The bit that turns on chorus. */
+#define CHO_ 0x80 /* The bit that turns on chorus. */
 #define CHO1 0x81
 #define CHO2 0x82
 #define CHO3 0x83
 
 #define INCTBL_SIZE 2048
 
-#define BUF_SIZE_BYTES   1024
+#define BUF_SIZE_BYTES 1024
 
 struct b_vibrato {
+	unsigned int offset1Table[INCTBL_SIZE];
+	unsigned int offset2Table[INCTBL_SIZE];
+	unsigned int offset3Table[INCTBL_SIZE];
 
-unsigned int offset1Table [INCTBL_SIZE];
-unsigned int offset2Table [INCTBL_SIZE];
-unsigned int offset3Table [INCTBL_SIZE];
+	unsigned int* offsetTable;
 
-unsigned int * offsetTable;
+	unsigned int stator;
+	unsigned int statorIncrement;
 
-unsigned int stator;
-unsigned int statorIncrement;
+	unsigned int outPos;
 
-unsigned int outPos;
+	float vibBuffer[BUF_SIZE_BYTES];
 
-float vibBuffer [BUF_SIZE_BYTES];
-
-/*
+	/*
  * Amplitudes of phase shift for the three vibrato settings.
  */
 
-double vib1OffAmp;
-double vib2OffAmp;
-double vib3OffAmp;
+	double vib1OffAmp;
+	double vib2OffAmp;
+	double vib3OffAmp;
 
-double vibFqHertz;
+	double vibFqHertz;
 
-int mixedBuffers;
-int effectEnabled;
-
+	int mixedBuffers;
+	int effectEnabled;
 };
 
-extern void resetVibrato (void *tonegen);
+extern void vibratoProc (struct b_vibrato* v, float const* inbuffer, float* outbuffer, size_t bufferLengthSamples);
 
-extern void initVibrato (void *tonegen, void *m);
+/* for standalone use */
+extern void reset_vibrato (struct b_vibrato* v);
+extern void init_vibrato (struct b_vibrato* v);
 
-extern void setVibrato (void *t, int select);
+/* tonegen integration */
+extern void resetVibrato (void* tonegen);
+extern void initVibrato (void* tonegen, void* m);
 
-extern void setScannerAdvance (int forward);
-
-extern int scannerConfig (void *t, ConfigContext * cfg);
-extern const ConfigDoc *scannerDoc ();
-
-extern float * vibratoProc (struct b_vibrato* v, float * inbuffer, float * outbuffer, size_t bufferLengthSamples);
+extern int scannerConfig (void* t, ConfigContext* cfg);
+extern const ConfigDoc* scannerDoc ();
 
 #endif /* SCANNER_H */

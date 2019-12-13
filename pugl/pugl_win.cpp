@@ -47,6 +47,8 @@ struct PuglInternalsImpl {
 	HDC      hdc;
 	HGLRC    hglrc;
 	WNDCLASS wc;
+	bool     keep_aspect;
+	int      win_flags;
 };
 
 LRESULT CALLBACK
@@ -73,48 +75,63 @@ puglCreate(PuglNativeWindow parent,
 	view->width  = width;
 	view->height = height;
 	view->ontop  = ontop;
-	view->user_resizable = resizable;
+	view->user_resizable = resizable && !parent;
+	view->impl->keep_aspect = min_width != width;
 
 	// FIXME: This is nasty, and pugl should not have static anything.
 	// Should class be a parameter?  Does this make sense on other platforms?
 	static int wc_count = 0;
+	int retry = 99;
 	char classNameBuf[256];
-	_snprintf(classNameBuf, sizeof(classNameBuf), "x%d%s", wc_count++, title);
-	classNameBuf[sizeof(classNameBuf)-1] = '\0';
+	while (true) {
+		_snprintf(classNameBuf, sizeof(classNameBuf), "x%d%s", wc_count++, title);
+		classNameBuf[sizeof(classNameBuf)-1] = '\0';
 
-	impl->wc.style         = CS_OWNDC;
-	impl->wc.lpfnWndProc   = wndProc;
-	impl->wc.cbClsExtra    = 0;
-	impl->wc.cbWndExtra    = 0;
-	impl->wc.hInstance     = 0;
-	impl->wc.hIcon         = LoadIcon(NULL, IDI_APPLICATION);
-	impl->wc.hCursor       = LoadCursor(NULL, IDC_ARROW);
-	impl->wc.hbrBackground = (HBRUSH)GetStockObject(BLACK_BRUSH);
-	impl->wc.lpszMenuName  = NULL;
-	impl->wc.lpszClassName = strdup(classNameBuf);
+		impl->wc.style         = CS_OWNDC;
+		impl->wc.lpfnWndProc   = wndProc;
+		impl->wc.cbClsExtra    = 0;
+		impl->wc.cbWndExtra    = 0;
+		impl->wc.hInstance     = 0;
+		impl->wc.hIcon         = LoadIcon(NULL, IDI_APPLICATION);
+		impl->wc.hCursor       = LoadCursor(NULL, IDC_ARROW);
+		impl->wc.hbrBackground = (HBRUSH)GetStockObject(BLACK_BRUSH);
+		impl->wc.lpszMenuName  = NULL;
+		impl->wc.lpszClassName = strdup(classNameBuf);
 
-	if (!RegisterClass(&impl->wc)) {
+		if (RegisterClass(&impl->wc)) {
+			break;
+		}
+		if (--retry > 0) {
+			free((void*)impl->wc.lpszClassName);
+			continue;
+		}
+		/* fail */
 		free((void*)impl->wc.lpszClassName);
 		free(impl);
 		free(view);
 		return NULL;
 	}
 
+	if (parent) {
+		view->impl->win_flags = WS_CHILD;
+	} else {
+		view->impl->win_flags = WS_POPUPWINDOW | WS_CAPTION | (view->user_resizable ? WS_SIZEBOX : 0);
+	}
+
 	// Adjust the overall window size to accomodate our requested client size
-	int winFlags = WS_POPUPWINDOW | WS_CAPTION | (view->user_resizable ? WS_SIZEBOX : 0);
 	RECT wr = { 0, 0, width, height };
-	AdjustWindowRectEx(&wr, winFlags, FALSE, WS_EX_TOPMOST);
+	AdjustWindowRectEx(&wr, view->impl->win_flags, FALSE, WS_EX_TOPMOST);
 
 	RECT mr = { 0, 0, min_width, min_height };
-	AdjustWindowRectEx(&mr, winFlags, FALSE, WS_EX_TOPMOST);
-	view->min_width  = mr.right-mr.left;
-	view->min_height = wr.bottom-mr.top;
+	AdjustWindowRectEx(&mr, view->impl->win_flags, FALSE, WS_EX_TOPMOST);
+	view->min_width  = mr.right - mr.left;
+	view->min_height = mr.bottom - mr.top;
 
-	impl->hwnd = CreateWindowEx(
+	impl->hwnd = CreateWindowEx (
 		WS_EX_TOPMOST,
-		classNameBuf, title, (resizable ? WS_SIZEBOX : 0) |
+		classNameBuf, title, (view->user_resizable ? WS_SIZEBOX : 0) |
 		(parent ? (WS_CHILD | WS_VISIBLE) : (WS_POPUPWINDOW | WS_CAPTION)),
-		0, 0, wr.right-wr.left, wr.bottom-wr.top,
+		0, 0, wr.right - wr.left, wr.bottom - wr.top,
 		(HWND)parent, NULL, NULL, NULL);
 
 	if (!impl->hwnd) {
@@ -127,7 +144,7 @@ puglCreate(PuglNativeWindow parent,
 	SetWindowLongPtr(impl->hwnd, GWL_USERDATA, (LONG_PTR)view);
 
 	SetWindowPos (impl->hwnd,
-			ontop ? HWND_TOPMOST : HWND_NOTOPMOST,
+			ontop ? HWND_TOPMOST : HWND_TOP,
 			0, 0, 0, 0, (ontop ? 0 : SWP_NOACTIVATE) | SWP_ASYNCWINDOWPOS | SWP_NOMOVE | SWP_NOSIZE);
 
 	impl->hdc = GetDC(impl->hwnd);
@@ -166,6 +183,9 @@ puglCreate(PuglNativeWindow parent,
 void
 puglDestroy(PuglView* view)
 {
+	if (!view) {
+		return;
+	}
 	wglMakeCurrent(NULL, NULL);
 	wglDeleteContext(view->impl->hglrc);
 	ReleaseDC(view->impl->hwnd, view->impl->hdc);
@@ -201,11 +221,13 @@ puglReshape(PuglView* view, int width, int height)
 		puglDefaultReshape(view, width, height);
 	}
 
+	wglMakeCurrent(NULL, NULL);
+
 	view->width  = width;
 	view->height = height;
 }
 
-void
+static void
 puglDisplay(PuglView* view)
 {
 	wglMakeCurrent(view->impl->hdc, view->impl->hglrc);
@@ -221,6 +243,7 @@ puglDisplay(PuglView* view)
 
 	glFlush();
 	SwapBuffers(view->impl->hdc);
+	wglMakeCurrent(NULL, NULL);
 }
 
 static void
@@ -232,17 +255,24 @@ puglResize(PuglView* view)
 	/* ask the plugin about the new size */
 	view->resizeFunc(view, &view->width, &view->height, &set_hints);
 
-	int winFlags = WS_POPUPWINDOW | WS_CAPTION | (view->user_resizable ? WS_SIZEBOX : 0);
-	RECT wr = { 0, 0, (long)view->width, (long)view->height };
+	HWND parent = GetParent (view->impl->hwnd);
+	if (parent) {
+		puglReshape(view, view->width, view->height);
+		SetWindowPos (view->impl->hwnd, HWND_TOP,
+				0, 0, view->width, view->height,
+				SWP_NOZORDER | SWP_NOMOVE);
+		return;
+	}
 
-	AdjustWindowRectEx(&wr, winFlags, FALSE, WS_EX_TOPMOST);
+	RECT wr = { 0, 0, (long)view->width, (long)view->height };
+	AdjustWindowRectEx(&wr, view->impl->win_flags, FALSE, WS_EX_TOPMOST);
 	SetWindowPos (view->impl->hwnd,
 			view->ontop ? HWND_TOPMOST : HWND_NOTOPMOST,
 			0, 0, wr.right-wr.left, wr.bottom-wr.top,
 			SWP_NOACTIVATE|SWP_NOMOVE|SWP_NOOWNERZORDER /*|SWP_NOZORDER*/);
 	UpdateWindow(view->impl->hwnd);
 
-	/* and call Reshape in GlX context */
+	/* and call Reshape in GL context */
 	puglReshape(view, view->width, view->height);
 }
 
@@ -284,12 +314,17 @@ static void
 processMouseEvent(PuglView* view, int button, bool press, LPARAM lParam)
 {
 	view->event_timestamp_ms = GetMessageTime();
+	if (GetFocus() != view->impl->hwnd) {
+		// focus is needed to receive mouse-wheel events
+		SetFocus (view->impl->hwnd);
+	}
+
 	if (press) {
 		SetCapture(view->impl->hwnd);
 	} else {
 		ReleaseCapture();
 	}
-	
+
 	if (view->mouseFunc) {
 		view->mouseFunc(view, button, press,
 		                GET_X_LPARAM(lParam),
@@ -319,11 +354,36 @@ handleMessage(PuglView* view, UINT message, WPARAM wParam, LPARAM lParam)
 	case WM_CREATE:
 	case WM_SHOWWINDOW:
 	case WM_SIZE:
-		RECT rect;
-		GetClientRect(view->impl->hwnd, &rect);
-		puglReshape(view, rect.right, rect.bottom);
-		view->width = rect.right;
-		view->height = rect.bottom;
+		{
+			RECT rect;
+			GetClientRect(view->impl->hwnd, &rect);
+			puglReshape(view, rect.right, rect.bottom);
+			view->width = rect.right;
+			view->height = rect.bottom;
+		}
+		break;
+	case WM_SIZING:
+		if (view->impl->keep_aspect) {
+			float aspect = view->min_width / (float)view->min_height;
+			RECT* rect = (RECT*)lParam;
+			switch ((int)wParam) {
+				case WMSZ_LEFT:
+				case WMSZ_RIGHT:
+				case WMSZ_BOTTOMLEFT:
+				case WMSZ_BOTTOMRIGHT:
+					rect->bottom = rect->top + (rect->right - rect->left) / aspect;
+					break;
+				case WMSZ_TOP:
+				case WMSZ_BOTTOM:
+				case WMSZ_TOPRIGHT:
+					rect->right = rect->left + (rect->bottom - rect->top) * aspect;
+					break;
+				case WMSZ_TOPLEFT:
+					rect->left = rect->right - (rect->bottom - rect->top) * aspect;
+					break;
+			}
+			return TRUE;
+		}
 		break;
 	case WM_GETMINMAXINFO:
 		{
@@ -362,15 +422,17 @@ handleMessage(PuglView* view, UINT message, WPARAM wParam, LPARAM lParam)
 		break;
 	case WM_MOUSEWHEEL:
 		if (view->scrollFunc) {
+			view->event_timestamp_ms = GetMessageTime();
 			POINT pt = { GET_X_LPARAM(lParam), GET_Y_LPARAM(lParam) };
 			ScreenToClient(view->impl->hwnd, &pt);
 			view->scrollFunc(
 				view, pt.x, pt.y,
-				GET_WHEEL_DELTA_WPARAM(wParam) / (float)WHEEL_DELTA, 0);
+				0, GET_WHEEL_DELTA_WPARAM(wParam) / (float)WHEEL_DELTA);
 		}
 		break;
 	case WM_MOUSEHWHEEL:
 		if (view->scrollFunc) {
+			view->event_timestamp_ms = GetMessageTime();
 			POINT pt = { GET_X_LPARAM(lParam), GET_Y_LPARAM(lParam) };
 			ScreenToClient(view->impl->hwnd, &pt);
 			view->scrollFunc(
@@ -379,17 +441,24 @@ handleMessage(PuglView* view, UINT message, WPARAM wParam, LPARAM lParam)
 		}
 		break;
 	case WM_KEYDOWN:
-		view->event_timestamp_ms = (GetMessageTime());
 		if (view->ignoreKeyRepeat && (lParam & (1 << 30))) {
 			break;
 		} // else nobreak
 	case WM_KEYUP:
-		if (key = keySymToSpecial(wParam)) {
+		view->event_timestamp_ms = GetMessageTime();
+		if ((key = keySymToSpecial(wParam))) {
 			if (view->specialFunc) {
 				view->specialFunc(view, message == WM_KEYDOWN, key);
 			}
 		} else if (view->keyboardFunc) {
-			view->keyboardFunc(view, message == WM_KEYDOWN, wParam);
+			static BYTE kbs[256];
+			if (GetKeyboardState(kbs) != FALSE) {
+				char lb[2];
+				UINT scanCode = (lParam >> 8) & 0xFFFFFF00;
+				if ( 1 == ToAscii(wParam, scanCode, kbs, (LPWORD)lb, 0)) {
+					view->keyboardFunc(view, message == WM_KEYDOWN, (char)lb[0]);
+				}
+			}
 		}
 		break;
 	case WM_QUIT:
@@ -463,4 +532,54 @@ PuglNativeWindow
 puglGetNativeWindow(PuglView* view)
 {
 	return (PuglNativeWindow)view->impl->hwnd;
+}
+
+int
+puglOpenFileDialog(PuglView* view, const char *title)
+{
+	char fn[1024] = "";
+	OPENFILENAME ofn;
+	ZeroMemory(&ofn, sizeof(OPENFILENAME));
+	ofn.lStructSize = sizeof(OPENFILENAME);
+	ofn.lpstrFile = fn;
+	ofn.nMaxFile = 1024;
+	ofn.lpstrTitle = title;
+	ofn.lpstrFilter = "All\0*.*\0";
+	ofn.nFilterIndex = 0;
+	ofn.lpstrInitialDir = 0;
+	ofn.Flags = OFN_ENABLESIZING | OFN_FILEMUSTEXIST | OFN_NONETWORKBUTTON | OFN_HIDEREADONLY | OFN_READONLY;
+
+	// TODO look into async ofn.lpfnHook, OFN_ENABLEHOOK
+	// UINT_PTR CALLBACK openFileHook(HWND hDlg, UINT message, WPARAM wParam, LPARAM lParam)
+	// yet it seems GetOpenFIleName itself won't return anyway.
+
+	ofn.hwndOwner = view->impl->hwnd; // modal
+
+	if (GetOpenFileName (&ofn)) {
+		if (view->fileSelectedFunc) {
+			view->fileSelectedFunc(view, fn);
+		}
+	} else {
+		if (view->fileSelectedFunc) {
+			view->fileSelectedFunc(view, NULL);
+		}
+	}
+	return 0;
+}
+
+int
+puglUpdateGeometryConstraints(PuglView* view, int min_width, int min_height, bool aspect)
+{
+	view->min_width = min_width;
+	view->min_height = min_height;
+	if (view->width < min_width || view->height < min_height) {
+		if (!view->resize) {
+			if (view->width < min_width) view->width = min_width;
+			if (view->height < min_height) view->height = min_height;
+			view->resize = true;
+			// TODO: trigger resize
+			// (not always needed since this fn is usually called in response to a resize)
+		}
+	}
+	return 0;
 }

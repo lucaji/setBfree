@@ -1,7 +1,7 @@
 /* setBfree - DSP tonewheel organ
  *
  * Copyright (C) 2003-2004 Fredrik Kilander <fk@dsv.su.se>
- * Copyright (C) 2008-2012 Robin Gareus <robin@gareus.org>
+ * Copyright (C) 2008-2018 Robin Gareus <robin@gareus.org>
  * Copyright (C) 2010 Ken Restivo <ken@restivo.org>
  * Copyright (C) 2012 Will Panther <pantherb@setbfree.org>
  *
@@ -21,16 +21,19 @@
 
 #ifndef EQCOMP_H
 #define EQCOMP_H
+
+/* clang-format off */
+
 /* Filter type selection values */
-#define EQC_LPF 0		/* lowpass filter */
-#define EQC_HPF 1		/* highpass filter */
-#define EQC_BPF0 2		/* Bandpass filter with constant skirt gain */
-#define EQC_BPF1 3		/* Bandpass filter with 0 db peak gain  */
-#define EQC_NOTCH 4		/* Notch filter */
-#define EQC_APF 5		/* Allpass filter */
-#define EQC_PEQ 6		/* Peaking eq filter */
-#define EQC_LOW 7		/* Low shelf filter */
-#define EQC_HIGH 8		/* High shelf filter */
+#define EQC_LPF   0 /* lowpass filter */
+#define EQC_HPF   1 /* highpass filter */
+#define EQC_BPF0  2 /* Bandpass filter with constant skirt gain */
+#define EQC_BPF1  3 /* Bandpass filter with 0 db peak gain  */
+#define EQC_NOTCH 4 /* Notch filter */
+#define EQC_APF   5 /* Allpass filter */
+#define EQC_PEQ   6 /* Peaking eq filter */
+#define EQC_LOW   7 /* Low shelf filter */
+#define EQC_HIGH  8 /* High shelf filter */
 
 /* Coefficient access symbols */
 #define EQC_B0 0
@@ -40,25 +43,16 @@
 #define EQC_A1 4
 #define EQC_A2 5
 
+/* clang-format on */
+
 /* Function prototypes */
-extern const char * eqGetTypeString (int t);
+extern const char* eqGetTypeString (int t);
 
-extern void eqCompute (int type,
-		       double fqHz,
-		       double Q,
-		       double dbG,
-		       double * C,
-					 double SampleRateD);
-
-extern void eqcLowPass_f   (double fqHz, double Q, float * F, double SR);
-extern void eqcHighPass_f  (double fqHz, double Q, float * F, double SR);
-extern void eqcBandPass0_f (double fqHz, double Q, float * F, double SR);
-extern void eqcBandPass1_f (double fqHz, double Q, float * F, double SR);
-extern void eqcNotch_f     (double fqHz, double Q, float * F, double SR);
-extern void eqcAllPass_f   (double fqHz, double Q, float * F, double SR);
-extern void eqcPeaking_f   (double fqHz, double Q, double dbGain, float * F, double SR);
-extern void eqcPeaking_f   (double fqHz, double Q, double dbGain, float * F, double SR);
-extern void eqcLowShelf_f  (double fqHz, double Q, double dbGain, float * F, double SR);
-extern void eqcHighShelf_f (double fqHz, double Q, double dbGain, float * F, double SR);
+extern void eqCompute (int     type,
+                       double  fqHz,
+                       double  Q,
+                       double  dbG,
+                       double* C,
+                       double  SampleRateD);
 
 #endif /* EQCOMP_H */

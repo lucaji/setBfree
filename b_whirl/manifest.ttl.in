@@ -1,8 +1,8 @@
-@prefix lv2:  <http://lv2plug.in/ns/lv2core#> .
-@prefix rdfs: <http://www.w3.org/2000/01/rdf-schema#> .
-@prefix pset: <http://lv2plug.in/ns/ext/presets#> .
-@prefix bwhirl:       <http://gareus.org/oss/lv2/b_whirl#> .
-@prefix bwhirlpreset: <http://gareus.org/oss/lv2/b_whirl/presets#> .
+@prefix bwhirl: <http://gareus.org/oss/lv2/b_whirl#> .
+@prefix lv2:    <http://lv2plug.in/ns/lv2core#> .
+@prefix pg:     <http://lv2plug.in/ns/ext/port-groups#> .
+@prefix rdfs:   <http://www.w3.org/2000/01/rdf-schema#> .
+@prefix ui:     <http://lv2plug.in/ns/extensions/ui#> .
 
 bwhirl:simple
 	a lv2:Plugin ;
@@ -14,12 +14,16 @@ bwhirl:extended
 	lv2:binary <@LV2NAME@@LIB_EXT@>  ;
 	rdfs:seeAlso <b_whirl-configurable.ttl> .
 
-bwhirlpreset:default
-  a pset:Preset ;
-	lv2:appliesTo bwhirl:extended ;
-	rdfs:seeAlso <b_whirl-presets.ttl> .
+bwhirl:mainIn
+	a pg:MonoGroup, pg:InputGroup ;
+	lv2:name "Input" ;
+	lv2:symbol "in" .
 
-bwhirlpreset:oiled
-  a pset:Preset ;
-	lv2:appliesTo bwhirl:extended ;
-	rdfs:seeAlso <b_whirl-presets.ttl> .
+bwhirl:mainOut
+	a pg:StereoGroup, pg:OutputGroup ;
+	pg:source bwhirl:mainIn ;
+	lv2:name "Output" ;
+	lv2:symbol "out" .
+
+<http://harrisonconsoles.com/lv2/routing#connectAllOutputs>
+	a lv2:Feature .

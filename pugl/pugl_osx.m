@@ -55,10 +55,9 @@ __attribute__ ((visibility ("hidden")))
                     defer:(BOOL)flag
 {
 	NSWindow* result = [super initWithContentRect:contentRect
-	                                    styleMask:(NSClosableWindowMask |
-	                                               NSTitledWindowMask |
-	                                               NSResizableWindowMask)
-	                                      backing:NSBackingStoreBuffered defer:NO];
+					    styleMask:aStyle
+					      backing:bufferingType
+						defer:NO];
 
 	[result setAcceptsMouseMovedEvents:YES];
 	return (RobTKPuglWindow *)result;
@@ -116,6 +115,8 @@ __attribute__ ((visibility ("hidden")))
 - (void) rightMouseDragged:(NSEvent*)event;
 - (void) rightMouseDown:(NSEvent*)event;
 - (void) rightMouseUp:(NSEvent*)event;
+- (void) otherMouseDown:(NSEvent*)event;
+- (void) otherMouseUp:(NSEvent*)event;
 - (void) keyDown:(NSEvent*)event;
 - (void) keyUp:(NSEvent*)event;
 - (void) flagsChanged:(NSEvent*)event;
@@ -131,6 +132,9 @@ __attribute__ ((visibility ("hidden")))
 		NSOpenGLPFAAccelerated,
 		NSOpenGLPFAColorSize, 32,
 		NSOpenGLPFADepthSize, 32,
+		NSOpenGLPFAMultisample,
+		NSOpenGLPFASampleBuffers, 1,
+		NSOpenGLPFASamples, 4,
 		0
 	};
 	NSOpenGLPixelFormat* pixelFormat = [[NSOpenGLPixelFormat alloc]
@@ -146,6 +150,7 @@ __attribute__ ((visibility ("hidden")))
 	if (self) {
 		[[self openGLContext] makeCurrentContext];
 		[self reshape];
+		[NSOpenGLContext clearCurrentContext];
 	}
 	return self;
 }
@@ -163,22 +168,31 @@ __attribute__ ((visibility ("hidden")))
 		   deleting the view (?), so we must have reset puglview to NULL when
 		   this comes around.
 		*/
+		[[self openGLContext] makeCurrentContext];
 		if (puglview->reshapeFunc) {
 			puglview->reshapeFunc(puglview, width, height);
 		} else {
 			puglDefaultReshape(puglview, width, height);
 		}
+		[NSOpenGLContext clearCurrentContext];
 
 		puglview->width  = width;
 		puglview->height = height;
+
+		[self removeTrackingArea:trackingArea];
+		[trackingArea release];
+		trackingArea = nil;
+		[self updateTrackingAreas];
 	}
 }
 
 - (void) drawRect:(NSRect)rect
 {
+	[[self openGLContext] makeCurrentContext];
 	puglDisplay(puglview);
 	glFlush();
 	glSwapAPPLE();
+	[NSOpenGLContext clearCurrentContext];
 }
 
 static unsigned
@@ -199,6 +213,7 @@ getModifiers(PuglView* view, NSEvent* ev)
 -(void)updateTrackingAreas
 {
 	if (trackingArea != nil) {
+		return;
 		[self removeTrackingArea:trackingArea];
 		[trackingArea release];
 	}
@@ -285,6 +300,24 @@ getModifiers(PuglView* view, NSEvent* ev)
 	}
 }
 
+- (void) otherMouseDown:(NSEvent*)event
+{
+	if (puglview->mouseFunc) {
+		NSPoint loc = [self convertPoint:[event locationInWindow] fromView:nil];
+		puglview->mods = getModifiers(puglview, event);
+		puglview->mouseFunc(puglview, [event buttonNumber], true, loc.x, puglview->height - loc.y);
+	}
+}
+
+- (void) otherMouseUp:(NSEvent*)event
+{
+	if (puglview->mouseFunc) {
+		NSPoint loc = [self convertPoint:[event locationInWindow] fromView:nil];
+		puglview->mods = getModifiers(puglview, event);
+		puglview->mouseFunc(puglview, [event buttonNumber], false, loc.x, puglview->height - loc.y);
+	}
+}
+
 - (void) scrollWheel:(NSEvent*)event
 {
 	if (puglview->scrollFunc) {
@@ -366,19 +399,34 @@ puglCreate(PuglNativeWindow parent,
 	impl->glview = [RobTKPuglOpenGLView new];
 	impl->glview->puglview = view;
 
+	[impl->glview setFrameSize:NSMakeSize(view->width, view->height)];
+
 	if (parent) {
 		NSView* pview = (NSView*) parent;
 		[pview addSubview:impl->glview];
 		[impl->glview setHidden:NO];
+		if (!resizable) {
+			[impl->glview setAutoresizingMask:NSViewNotSizable];
+		}
 	} else {
 		NSString* titleString = [[NSString alloc]
 			initWithBytes:title
 			       length:strlen(title)
 			     encoding:NSUTF8StringEncoding];
-		id window = [[RobTKPuglWindow new]retain];
+		NSRect frame = NSMakeRect(0, 0, min_width, min_height);
+		NSUInteger style = NSClosableWindowMask | NSTitledWindowMask;
+		if (resizable) {
+			style |= NSResizableWindowMask;
+		}
+		id window = [[[RobTKPuglWindow alloc]
+			initWithContentRect:frame
+				  styleMask:style
+				    backing:NSBackingStoreBuffered
+				      defer:NO
+			] retain];
 		[window setPuglview:view];
 		[window setTitle:titleString];
-		[window setContentMinSize:NSMakeSize(min_width, min_height)];
+		puglUpdateGeometryConstraints(view, min_width, min_height, min_width != width);
 		if (ontop) {
 			[window setLevel: NSStatusWindowLevel];
 		}
@@ -399,6 +447,9 @@ puglCreate(PuglNativeWindow parent,
 void
 puglDestroy(PuglView* view)
 {
+	if (!view) {
+		return;
+	}
 	view->impl->glview->puglview = NULL;
 	[view->impl->glview removeFromSuperview];
 	if (view->impl->window) {
@@ -415,7 +466,10 @@ puglDestroy(PuglView* view)
 PuglStatus
 puglProcessEvents(PuglView* view)
 {
-	//[view->impl->glview setNeedsDisplay: YES];
+	if (view->redisplay) {
+		view->redisplay = false;
+		[view->impl->glview setNeedsDisplay: YES];
+	}
 
 	return PUGL_SUCCESS;
 }
@@ -426,9 +480,16 @@ puglResize(PuglView* view)
 	int set_hints; // ignored
 	view->resize = false;
 	if (!view->resizeFunc) { return; }
+
+	[[view->impl->glview openGLContext] makeCurrentContext];
 	view->resizeFunc(view, &view->width, &view->height, &set_hints);
-	[view->impl->window setContentSize:NSMakeSize(view->width, view->height) ];
+	if (view->impl->window) {
+		[view->impl->window setContentSize:NSMakeSize(view->width, view->height) ];
+	} else {
+		[view->impl->glview setFrameSize:NSMakeSize(view->width, view->height)];
+	}
 	[view->impl->glview reshape];
+	[NSOpenGLContext clearCurrentContext];
 }
 
 void
@@ -453,7 +514,7 @@ puglHideWindow(PuglView* view)
 void
 puglPostRedisplay(PuglView* view)
 {
-	//view->redisplay = true; // unused
+	view->redisplay = true;
 	[view->impl->glview setNeedsDisplay: YES];
 }
 
@@ -461,4 +522,67 @@ PuglNativeWindow
 puglGetNativeWindow(PuglView* view)
 {
 	return (PuglNativeWindow)view->impl->glview;
+}
+
+int
+puglOpenFileDialog(PuglView* view, const char *title)
+{
+	NSOpenPanel *panel = [NSOpenPanel openPanel];
+	[panel setCanChooseFiles:YES];
+	[panel setCanChooseDirectories:NO];
+	[panel setAllowsMultipleSelection:NO];
+
+	if (title) {
+		NSString* titleString = [[NSString alloc]
+			initWithBytes:title
+			     	 length:strlen(title)
+			   	 encoding:NSUTF8StringEncoding];
+		[panel setTitle:titleString];
+	}
+
+	[panel beginWithCompletionHandler:^(NSInteger result) {
+		bool file_ok = false;
+		if (result == NSFileHandlingPanelOKButton) {
+			for (NSURL *url in [panel URLs]) {
+				if (![url isFileURL]) continue;
+				//NSLog(@"%@", url.path);
+				const char *fn= [url.path UTF8String];
+				file_ok = true;
+				if (view->fileSelectedFunc) {
+					view->fileSelectedFunc(view, fn);
+				}
+				break;
+			}
+		}
+
+		if (!file_ok && view->fileSelectedFunc) {
+			view->fileSelectedFunc(view, NULL);
+		}
+	}];
+
+	return 0;
+}
+
+bool
+rtk_osx_open_url (const char* url)
+{
+	NSString* strurl = [[NSString alloc] initWithUTF8String:url];
+	NSURL* nsurl = [[NSURL alloc] initWithString:strurl];
+
+	bool ret = [[NSWorkspace sharedWorkspace] openURL:nsurl];
+
+	[strurl release];
+	[nsurl release];
+
+	return ret;
+}
+
+int
+puglUpdateGeometryConstraints(PuglView* view, int min_width, int min_height, bool aspect)
+{
+		[view->impl->window setContentMinSize:NSMakeSize(min_width, min_height)];
+		if (aspect) {
+			[view->impl->window setContentAspectRatio:NSMakeSize(min_width, min_height)];
+		}
+		return 0;
 }

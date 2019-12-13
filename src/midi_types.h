@@ -1,7 +1,7 @@
 /* setBfree - DSP tonewheel organ
  *
  * Copyright (C) 2003-2004 Fredrik Kilander <fk@dsv.su.se>
- * Copyright (C) 2008-2012 Robin Gareus <robin@gareus.org>
+ * Copyright (C) 2008-2018 Robin Gareus <robin@gareus.org>
  * Copyright (C) 2012 Will Panther <pantherb@setbfree.org>
  *
  * This program is free software; you can redistribute it and/or modify
@@ -27,14 +27,16 @@
 #define MIDI_UTIL_GREAT 1
 #define MIDI_UTIL_PEDAL 2
 
-#define MIDI_NOTEOFF		0x80
-#define MIDI_NOTEON		0x90
-#define MIDI_KEY_PRESSURE	0xA0
-#define MIDI_CTL_CHANGE		0xB0
-#define MIDI_PGM_CHANGE		0xC0
-#define MIDI_CHN_PRESSURE	0xD0
-#define MIDI_PITCH_BEND		0xE0
-#define MIDI_SYSTEM_PREFIX	0xF0
+/* clang-format on */
+#define MIDI_NOTEOFF 0x80
+#define MIDI_NOTEON 0x90
+#define MIDI_KEY_PRESSURE 0xA0
+#define MIDI_CTL_CHANGE 0xB0
+#define MIDI_PGM_CHANGE 0xC0
+#define MIDI_CHN_PRESSURE 0xD0
+#define MIDI_PITCH_BEND 0xE0
+#define MIDI_SYSTEM_PREFIX 0xF0
+/* clang-format off */
 
 enum BMIDI_EV_TYPE {
   INVALID=0,
@@ -63,5 +65,3 @@ struct bmidi_event_t {
 void process_midi_event(void *inst, const struct bmidi_event_t *ev);
 
 #endif /* MIDI_TYPES_H */
-
-/* vi:set ts=8 sts=2 sw=2: */
